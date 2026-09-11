@@ -14,22 +14,21 @@ public class Main {
 
         SimulationPanel panel = new SimulationPanel();
 
-        JButton randomizeButton = new JButton("Randomize Target");
+        JButton startButton = new JButton("Start");
+        JButton stopButton = new JButton("Stop");
 
-        randomizeButton.addActionListener(e -> {
-            panel.randomizeTarget();
+        startButton.addActionListener(e -> {
+            panel.startSimulation();
         });
 
-        JButton obstacleButton = new JButton("Randomize Obstacle");
-
-        obstacleButton.addActionListener(e -> {
-            panel.randomizeObstacle();
+        stopButton.addActionListener(e -> {
+            panel.stopSimulation();
         });
 
         JPanel buttonPanel = new JPanel();
 
-        buttonPanel.add(randomizeButton);
-        buttonPanel.add(obstacleButton);
+        buttonPanel.add(startButton);
+        buttonPanel.add(stopButton);
 
         window.setLayout(new BorderLayout());
 

@@ -3,6 +3,13 @@ import java.awt.Graphics;
 import javax.swing.Timer;
 import java.awt.geom.Line2D;
 import java.util.Random;
+import java.awt.Graphics2D;
+import java.awt.Color;
+import java.awt.Polygon;
+import java.awt.RenderingHints;
+import java.awt.Font;
+import java.awt.Rectangle;
+import java.util.ArrayList;
 
 // extends JPanel makes class inherit abilities from JPanel to SimulationPanel
 public class SimulationPanel extends JPanel {
@@ -11,16 +18,17 @@ public class SimulationPanel extends JPanel {
     private int targetY = 150;
     private int targetVelocityX = 1;
 
-    private int wallX = 300;
-    private int wallY = 300;
-    private int wallWidth = 300;
-    private int wallHeight = 20;
+    private int movementCounter = 0;
+    private int nextMovementChange = 120;
+
+    private ArrayList<Rectangle> obstacles = new ArrayList<>();
 
     private boolean targetBlocked = false;
 
     private double cameraAngle = -90; // -90 is y pointed up in swing 90 is vice versa
     private double fieldOfView = 50;
-    private double cameraVelocity = 0.5;
+    private double cameraVelocity = 2;
+    private double trackingSpeed = 1.5;
 
     private boolean targetDetected = false;
     private double targetAngle;
@@ -33,11 +41,44 @@ public class SimulationPanel extends JPanel {
 
     private boolean targetInFOV;
 
+    private boolean simulationRunning = false;
+
+    private int acquisitions = 0;
+    private int targetsLost = 0;
+
+    private double trackingTime = 0;
+
+    private boolean wasTracking = false;
+
     public SimulationPanel() {
+
+        obstacles.add(new Rectangle(100, 280, 180, 20));
+        obstacles.add(new Rectangle(350, 330, 220, 20));
+        obstacles.add(new Rectangle(650, 270, 140, 20));
 
         Timer timer = new Timer(16, e -> {
 
+            if (!simulationRunning) {
+                return;
+            }
+
             targetX += targetVelocityX;
+
+            movementCounter++;
+
+            if (movementCounter >= nextMovementChange) {
+
+                int newVelocity;
+
+                do {
+                    newVelocity = random.nextInt(7) - 3;
+                } while (newVelocity == 0);
+
+                targetVelocityX = newVelocity;
+
+                movementCounter = 0;
+                nextMovementChange = random.nextInt(126) + 63;
+            }
 
             targetSpeed = Math.abs(targetVelocityX) / 0.016;
 
@@ -66,12 +107,14 @@ public class SimulationPanel extends JPanel {
                     targetCenterY
             );
 
-            targetBlocked = sightLine.intersects(
-                    wallX,
-                    wallY,
-                    wallWidth,
-                    wallHeight
-            );
+            targetBlocked = false;
+
+            for (Rectangle obstacle : obstacles) {
+                if (sightLine.intersects(obstacle)) {
+                    targetBlocked = true;
+                    break;
+                }
+            }
 
             int deltaX = targetCenterX - cameraX;
             int deltaY = targetCenterY - cameraY;
@@ -86,8 +129,29 @@ public class SimulationPanel extends JPanel {
 
             targetDetected = targetInFOV && !targetBlocked;
 
+            if (targetDetected && !wasTracking) {
+                acquisitions++;
+            }
+
+            if (!targetDetected && wasTracking) {
+                targetsLost++;
+            }
+
             if (targetDetected) {
-                cameraAngle = targetAngle;
+                trackingTime += 0.016;
+            }
+
+            wasTracking = targetDetected;
+
+            if (targetDetected) {
+
+                double trackingDifference = targetAngle - cameraAngle;
+
+                if (Math.abs(trackingDifference) <= trackingSpeed) {
+                    cameraAngle = targetAngle;
+                } else {
+                    cameraAngle += Math.signum(trackingDifference) * trackingSpeed;
+                }
             }
 
             repaint();
@@ -100,9 +164,22 @@ public class SimulationPanel extends JPanel {
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
 
-        g.fillOval(targetX,targetY,20,20);
+        Graphics2D g2 = (Graphics2D) g;
+        g2.setRenderingHint(
+                RenderingHints.KEY_ANTIALIASING,
+                RenderingHints.VALUE_ANTIALIAS_ON
+        );
 
-        g.fillRect(wallX, wallY, wallWidth, wallHeight);
+        g.fillOval(targetX, targetY, 20, 20);
+
+        for (Rectangle obstacle : obstacles) {
+            g.fillRect(
+                    obstacle.x,
+                    obstacle.y,
+                    obstacle.width,
+                    obstacle.height
+            );
+        }
 
         int cameraX = getWidth() / 2;
         int cameraY = getHeight() - 50;
@@ -119,35 +196,103 @@ public class SimulationPanel extends JPanel {
 
         double halfFOV = fieldOfView / 2;
         double leftAngleRadians = Math.toRadians(cameraAngle - halfFOV);
-        double rightAngleRadians = Math.toRadians(cameraAngle +halfFOV);
+        double rightAngleRadians = Math.toRadians(cameraAngle + halfFOV);
         int leftEndX = cameraX + (int) (Math.cos(leftAngleRadians) * lineLength);
         int leftEndY = cameraY + (int) (Math.sin(leftAngleRadians) * lineLength);
         int rightEndX = cameraX + (int) (Math.cos(rightAngleRadians) * lineLength);
         int rightEndY = cameraY + (int) (Math.sin(rightAngleRadians) * lineLength);
 
-        g.drawLine(cameraX, cameraY, leftEndX, leftEndY);
-        g.drawLine(cameraX, cameraY, rightEndX, rightEndY);
-        g.drawLine(cameraX, cameraY, lineEndX, lineEndY);
+        if (targetDetected) {
+            g.setColor(Color.GREEN);
+        } else {
+            g.setColor(Color.RED);
+        }
+
+        Polygon cone = new Polygon();
+        cone.addPoint(cameraX, cameraY);
+        cone.addPoint(leftEndX, leftEndY);
+        cone.addPoint(rightEndX, rightEndY);
 
         if (targetDetected) {
-            g.drawString("Status: TARGET DETECTED", 20, 30);
+            g2.setColor(new Color(0, 255, 0, 60));
+        } else {
+            g2.setColor(new Color(255, 0, 0, 60));
+        }
+
+        g2.fillPolygon(cone);
+
+        if (targetDetected) {
+            g2.setColor(Color.GREEN);
+        } else {
+            g2.setColor(Color.RED);
+        }
+
+        g2.drawLine(cameraX, cameraY, leftEndX, leftEndY);
+        g2.drawLine(cameraX, cameraY, rightEndX, rightEndY);
+        g2.drawLine(cameraX, cameraY, lineEndX, lineEndY);
+
+        g2.setColor(Color.BLACK);
+        g.setFont(new Font("Arial", Font.BOLD, 16));
+
+        if (!simulationRunning) {
+            g.drawString("Status: STOPPED", 20, 30);
+        } else if (targetDetected) {
+            g.drawString("Status: TRACKING", 20, 30);
         } else {
             g.drawString("Status: SCANNING", 20, 30);
         }
-        g.drawString("Camera angle: " + cameraAngle, 20, 50);
-        g.drawString("Target angle: " + targetAngle, 20, 70);
-        g.drawString("Difference: " + angleDifference, 20, 90);
+
+        g.setFont(new Font("Arial", Font.PLAIN, 14));
+
+        g.drawString(
+                "Camera Angle: " + String.format("%.1f", cameraAngle) + "°",
+                20,
+                95
+        );
+
+        g.drawString(
+                "Target Angle: " + String.format("%.1f", targetAngle) + "°",
+                20,
+                115
+        );
+
+        g.drawString("Acquisitions: " + acquisitions, 20, 175);
+        g.drawString("Targets Lost: " + targetsLost, 20, 195);
+
+        g.drawString(
+                "Tracking Time: " + String.format("%.2f", trackingTime) + " s",
+                20,
+                215
+        );
 
         if (targetDetected) {
-            g.drawString("Distance: " + targetDistance + " px", 20, 130);
+            g.drawString("Distance: " + targetDistance + " px", 20, 135);
         }
 
         if (targetDetected) {
-            g.drawString("Speed: " + targetSpeed + " px/s", 20, 150);
+            g.drawString("Speed: " + targetSpeed + " px/s", 20, 155);
         }
 
         int targetCenterX = targetX + 10;
         int targetCenterY = targetY + 10;
+
+        if (targetInFOV) {
+
+            if (targetBlocked) {
+                g.setColor(Color.RED);
+            } else {
+                g.setColor(Color.GREEN);
+            }
+
+            g.drawLine(
+                    cameraX,
+                    cameraY,
+                    targetCenterX,
+                    targetCenterY
+            );
+
+            g.setColor(Color.BLACK);
+        }
 
     }
 
@@ -162,12 +307,36 @@ public class SimulationPanel extends JPanel {
 
     public void randomizeObstacle() {
 
-        int minimumX = 50;
-        int maximumX = getWidth() - wallWidth - 50;
+        obstacles.clear();
 
-        wallX = random.nextInt(maximumX - minimumX + 1) + minimumX;
+        for (int i = 0; i < 3; i++) {
 
-        wallY = random.nextInt(101) + 250;
+            int width = random.nextInt(121) + 120;
+            int x = random.nextInt(getWidth() - width - 100) + 50;
+            int y = random.nextInt(101) + 250;
+
+            obstacles.add(new Rectangle(x, y, width, 20));
+        }
     }
 
+    public void startSimulation() {
+
+        acquisitions = 0;
+        targetsLost = 0;
+        trackingTime = 0;
+
+        targetDetected = false;
+        targetBlocked = false;
+        wasTracking = false;
+
+        randomizeTarget();
+        randomizeObstacle();
+
+        simulationRunning = true;
+    }
+
+    public void stopSimulation() {
+        simulationRunning = false;
+        repaint();
+    }
 }
