@@ -2,6 +2,8 @@ import javax.swing.JPanel;
 import java.awt.Graphics;
 import javax.swing.Timer;
 import java.awt.geom.Line2D;
+import java.util.Random;
+
 // extends JPanel makes class inherit abilities from JPanel to SimulationPanel
 public class SimulationPanel extends JPanel {
 
@@ -9,6 +11,7 @@ public class SimulationPanel extends JPanel {
     private int targetY = 150;
     private int targetVelocityX = 1;
 
+    private int wallX = 300;
     private int wallY = 300;
     private int wallWidth = 300;
     private int wallHeight = 20;
@@ -23,11 +26,20 @@ public class SimulationPanel extends JPanel {
     private double targetAngle;
     private double angleDifference;
 
+    private double targetDistance;
+    private double targetSpeed;
+
+    private Random random = new Random();
+
+    private boolean targetInFOV;
+
     public SimulationPanel() {
 
         Timer timer = new Timer(16, e -> {
 
             targetX += targetVelocityX;
+
+            targetSpeed = Math.abs(targetVelocityX) / 0.016;
 
             if (targetX <= 0 || targetX + 20 >= getWidth()) {
                 targetVelocityX *= -1;
@@ -47,8 +59,6 @@ public class SimulationPanel extends JPanel {
             int targetCenterX = targetX + 10;
             int targetCenterY = targetY + 10;
 
-            int wallX = (getWidth() - wallWidth) / 2;
-
             Line2D sightLine = new Line2D.Double(
                     cameraX,
                     cameraY,
@@ -66,11 +76,15 @@ public class SimulationPanel extends JPanel {
             int deltaX = targetCenterX - cameraX;
             int deltaY = targetCenterY - cameraY;
 
+            targetDistance = Math.hypot(deltaX, deltaY);
+
             targetAngle = Math.toDegrees(Math.atan2(deltaY, deltaX));
 
             angleDifference = Math.abs(targetAngle - cameraAngle);
 
-            targetDetected = angleDifference <= fieldOfView / 2 && !targetBlocked;
+            targetInFOV = angleDifference <= fieldOfView / 2;
+
+            targetDetected = targetInFOV && !targetBlocked;
 
             if (targetDetected) {
                 cameraAngle = targetAngle;
@@ -88,7 +102,6 @@ public class SimulationPanel extends JPanel {
 
         g.fillOval(targetX,targetY,20,20);
 
-        int wallX = (getWidth() - wallWidth) / 2;
         g.fillRect(wallX, wallY, wallWidth, wallHeight);
 
         int cameraX = getWidth() / 2;
@@ -125,10 +138,36 @@ public class SimulationPanel extends JPanel {
         g.drawString("Target angle: " + targetAngle, 20, 70);
         g.drawString("Difference: " + angleDifference, 20, 90);
 
-        if (targetBlocked) {
-            g.drawString("Line of sight: BLOCKED", 20, 110);
-        } else {
-            g.drawString("Line of sight: CLEAR", 20, 110);
+        if (targetDetected) {
+            g.drawString("Distance: " + targetDistance + " px", 20, 130);
         }
+
+        if (targetDetected) {
+            g.drawString("Speed: " + targetSpeed + " px/s", 20, 150);
+        }
+
+        int targetCenterX = targetX + 10;
+        int targetCenterY = targetY + 10;
+
     }
+
+    public void randomizeTarget() {
+
+        targetY = random.nextInt(151) + 80; // random.nextInt(x) gives ints from 0 up to x - 1
+
+        targetVelocityX = random.nextInt(3) + 1;
+
+        targetX = 0;
+    }
+
+    public void randomizeObstacle() {
+
+        int minimumX = 50;
+        int maximumX = getWidth() - wallWidth - 50;
+
+        wallX = random.nextInt(maximumX - minimumX + 1) + minimumX;
+
+        wallY = random.nextInt(101) + 250;
+    }
+
 }
