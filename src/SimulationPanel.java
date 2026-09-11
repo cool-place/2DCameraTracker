@@ -202,12 +202,6 @@ public class SimulationPanel extends JPanel {
         int rightEndX = cameraX + (int) (Math.cos(rightAngleRadians) * lineLength);
         int rightEndY = cameraY + (int) (Math.sin(rightAngleRadians) * lineLength);
 
-        if (targetDetected) {
-            g.setColor(Color.GREEN);
-        } else {
-            g.setColor(Color.RED);
-        }
-
         Polygon cone = new Polygon();
         cone.addPoint(cameraX, cameraY);
         cone.addPoint(leftEndX, leftEndY);
