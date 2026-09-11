@@ -1,6 +1,7 @@
 import javax.swing.JPanel;
 import java.awt.Graphics;
 import javax.swing.Timer;
+import java.awt.geom.Line2D;
 // extends JPanel makes class inherit abilities from JPanel to SimulationPanel
 public class SimulationPanel extends JPanel {
 
@@ -8,9 +9,19 @@ public class SimulationPanel extends JPanel {
     private int targetY = 150;
     private int targetVelocityX = 1;
 
+    private int wallY = 300;
+    private int wallWidth = 300;
+    private int wallHeight = 20;
+
+    private boolean targetBlocked = false;
+
     private double cameraAngle = -90; // -90 is y pointed up in swing 90 is vice versa
     private double fieldOfView = 50;
     private double cameraVelocity = 0.5;
+
+    private boolean targetDetected = false;
+    private double targetAngle;
+    private double angleDifference;
 
     public SimulationPanel() {
 
@@ -22,10 +33,47 @@ public class SimulationPanel extends JPanel {
                 targetVelocityX *= -1;
             }
 
-            cameraAngle += cameraVelocity;
+            if (!targetDetected) {
+                cameraAngle += cameraVelocity;
 
-            if (cameraAngle >= -30 || cameraAngle <= -150) {
-                cameraVelocity *= -1;
+                if (cameraAngle >= -30 || cameraAngle <= -150) {
+                    cameraVelocity *= -1;
+                }
+            }
+
+            int cameraX = getWidth() / 2;
+            int cameraY = getHeight() - 50;
+
+            int targetCenterX = targetX + 10;
+            int targetCenterY = targetY + 10;
+
+            int wallX = (getWidth() - wallWidth) / 2;
+
+            Line2D sightLine = new Line2D.Double(
+                    cameraX,
+                    cameraY,
+                    targetCenterX,
+                    targetCenterY
+            );
+
+            targetBlocked = sightLine.intersects(
+                    wallX,
+                    wallY,
+                    wallWidth,
+                    wallHeight
+            );
+
+            int deltaX = targetCenterX - cameraX;
+            int deltaY = targetCenterY - cameraY;
+
+            targetAngle = Math.toDegrees(Math.atan2(deltaY, deltaX));
+
+            angleDifference = Math.abs(targetAngle - cameraAngle);
+
+            targetDetected = angleDifference <= fieldOfView / 2 && !targetBlocked;
+
+            if (targetDetected) {
+                cameraAngle = targetAngle;
             }
 
             repaint();
@@ -39,6 +87,9 @@ public class SimulationPanel extends JPanel {
         super.paintComponent(g);
 
         g.fillOval(targetX,targetY,20,20);
+
+        int wallX = (getWidth() - wallWidth) / 2;
+        g.fillRect(wallX, wallY, wallWidth, wallHeight);
 
         int cameraX = getWidth() / 2;
         int cameraY = getHeight() - 50;
@@ -64,5 +115,20 @@ public class SimulationPanel extends JPanel {
         g.drawLine(cameraX, cameraY, leftEndX, leftEndY);
         g.drawLine(cameraX, cameraY, rightEndX, rightEndY);
         g.drawLine(cameraX, cameraY, lineEndX, lineEndY);
+
+        if (targetDetected) {
+            g.drawString("Status: TARGET DETECTED", 20, 30);
+        } else {
+            g.drawString("Status: SCANNING", 20, 30);
+        }
+        g.drawString("Camera angle: " + cameraAngle, 20, 50);
+        g.drawString("Target angle: " + targetAngle, 20, 70);
+        g.drawString("Difference: " + angleDifference, 20, 90);
+
+        if (targetBlocked) {
+            g.drawString("Line of sight: BLOCKED", 20, 110);
+        } else {
+            g.drawString("Line of sight: CLEAR", 20, 110);
+        }
     }
 }
