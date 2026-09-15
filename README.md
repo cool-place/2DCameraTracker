@@ -15,7 +15,7 @@ The idea originally came from seeing a moving webcam mount and wondering how I c
 * Start and stop controls
 * Live tracking statistics
 
-## Demo
+## Demo (Obstacles randomize on start)
 
 <img width="800" height="511" alt="cameratrackingsimdemorec-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/1a57abe7-29db-42aa-8c7e-f9293c9c6cf9" />
 
